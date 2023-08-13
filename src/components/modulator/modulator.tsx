@@ -2,17 +2,14 @@ import {useEffect, useId, useState } from "react";
 import React from "react"
 import { Grid } from "@mui/material"
 import GridHeader from "../ui/GridHeader"
-import PinLayoutComp from "./pinLayoutComp";
-import SchemaComp from "./schemaComp";
-import Button from "../ui/Button";
-import { fetchLogic, fetchModule, fetchPinLayout, predicate } from "./helper/file";
+import PinLayoutComp from "./interactief/pinLayoutComp";
+
+import { fetchLogic, fetchModule, fetchModuleSvg, fetchPinLayout, predicate } from "./helper/file";
 import { Breakout, LogicPair, LogicSup, ModuExtern, Pin, PinAlloc,  PinBreakout,  TypePin, powerSup } from "./helper/types";
 import SerialThing from "./serialThing";
-import PowerSupplyComp from "./powerSupplyComp";
-import ServiceCodeComp from "./serviceStartComponent";
-import ClientStartModu from "./clientStartModu";
-import { sort } from "@tidyjs/tidy";
-import ExtraNeededComp from "./logicLevelComp";
+
+import ExtraNeededComp from "./interactief/logicLevelComp";
+import SchemaCompTest from "./interactief/schemaComp";
 
 
 
@@ -34,9 +31,12 @@ const ModulatorComp = () =>{
     const [allocedPins, setAllocedPins] = useState<Array<PinAlloc>>([]);
     const [conPowerSup, setconPowerSup] = useState<Array<powerSup>>([]);
     const [conLogicLevels, setconLogicLevels] = useState<Array<LogicSup>>([]);
+    const [highLighted, setHighlighted] = useState(undefined as ModuExtern |undefined);
+    const [highLightPins, setHighlightPins] =  useState<Array<PinAlloc>>([]);
 
     const [, updateState] = React.useState({});
     const forceUpdate = React.useCallback(() => updateState({}), [])
+
 
     useEffect(() =>{
         getBreakout().then((data) => {
@@ -126,7 +126,7 @@ const ModulatorComp = () =>{
         });
 
         indexlistLogicLevels.forEach(function(value){
-            tempPowerSup = removePowerSup(tempLogicLevel[value].convName, tempPowerSup)
+            tempPowerSup = removePowerSup(tempLogicLevel[value].name, tempPowerSup)
             tempLogicLevel.splice(value, 1);
         })
 
@@ -136,7 +136,15 @@ const ModulatorComp = () =>{
         setBreakoutBoard(tempBreakout);
         setconPowerSup(tempPowerSup);
         setconLogicLevels(tempLogicLevel);
-
+        if(highLighted){
+            if(highLighted.name === moduleName){
+                setHighlighted(undefined);
+                setHighlightPins(tempAllocedPins);
+            }
+        }else{
+            setHighlightPins(tempAllocedPins);
+        }
+        
         forceUpdate();
 
     }
@@ -168,12 +176,18 @@ const ModulatorComp = () =>{
         return tempPowerSup;
     }
 
-    const addSchema = async (id: string) =>{
-        //console.log("new comp id: "+id);
-        //"sr04" == 897654321;
-        const tempModu = await fetchModule(id);
+    
+
+    const addSVG = async (id:string) =>{
+        const tempModu = await fetchModuleSvg(id);
         
-        
+        const name = checkName(tempModu.name);
+        console.log(name);
+        tempModu.name = name;
+        for(let i=0; i<tempModu.pinLayout.length; i++){
+            tempModu.pinLayout[i].moduleId = name;
+        }
+
         const tempModuPins = await breakBoardAllocCheck(tempModu);
         if(tempModuPins){
             if(tempModuPins.pinAlloctedTemp.length !== 0){
@@ -189,16 +203,65 @@ const ModulatorComp = () =>{
                     tempAllocPin.push(tempModuPins.pinAlloctedTemp[i])
                 }
                 setAllocedPins(tempAllocPin);
+                if(!highLighted){
+                    setHighlightPins(tempAllocPin);
+                }
+
             }
 
             //Place the new module
             const tempCon = conModules;
             tempCon.push(tempModu)
             setconModules(tempCon);
-            
+
         }
         
         forceUpdate();
+    }
+
+
+    function isNumber(numStr: string) {
+        return !isNaN(parseFloat(numStr)) && !isNaN(+numStr)
+      }
+
+      ///bug in not higher number
+    const checkName = (currentName: string): string =>{
+        const total:number[] = [];
+
+        for(let i =0; i< conModules.length; i++){
+            if(conModules[i].name.includes(currentName)){
+                const splitTemp = conModules[i].name.split(" ");
+                if(isNumber(splitTemp[splitTemp.length-1])){
+                    total.push(Number(splitTemp[splitTemp.length-1]));
+                }else{
+                    total.push(0);
+                }
+            }
+        }
+        if(total.length === 0){
+            return currentName;
+        }
+        const numberValue = findLowestNumber(total);
+        if(numberValue === 0){
+            return currentName;
+        }
+        return currentName + " "+numberValue.toString();
+        
+    }
+
+    const findLowestNumber = (pair: number[]): number =>{
+        pair.sort();
+        let lowest = -1;
+        for(let i = 0; i < pair.length; i++){
+            if(pair[i] != i){
+                lowest = i;
+                break;
+            }
+        }
+        if(lowest == -1){
+            lowest = pair[pair.length -1]+1;
+        }
+        return lowest;
     }
 
 //TODO: change pinAlloc and add different anming
@@ -224,7 +287,7 @@ const ModulatorComp = () =>{
                     logicSup.conModule.push(pins[i].moduleId);
                 }
                 
-                pinAlloclist[indexPinAlloc].BreakoutName = logicSup.convName;
+                pinAlloclist[indexPinAlloc].BreakoutName = logicSup.name;
                 pinAlloclist[indexPinAlloc].pinBreakLocation = logicSup.pinOutHigh[index].position;
                 
                 if(logicHigh)
@@ -239,7 +302,7 @@ const ModulatorComp = () =>{
     
                 logicSupply.conModule.push(pins[i].moduleId);
 
-                pinAlloclist[indexPinAlloc].BreakoutName = logicSupply.convName;
+                pinAlloclist[indexPinAlloc].BreakoutName = logicSupply.name;
                 pinAlloclist[indexPinAlloc].pinBreakLocation = index;
                 
                 if(logicHigh)
@@ -263,15 +326,39 @@ const ModulatorComp = () =>{
         index: number
     }
 
+    const checkLogicName = (currentName: string):string => {
+        const total:number[] = [];
+
+        for(let i=0; i<conLogicLevels.length; i++){
+            if(conLogicLevels[i].name.includes(currentName)){
+                const splitTemp = conLogicLevels[i].name.split(" ");
+                if(isNumber(splitTemp[splitTemp.length-1])){
+                    total.push(Number(splitTemp[splitTemp.length-1]));
+                }else{
+                    total.push(0);
+                }
+            }
+        }
+        if(total.length === 0){
+            return currentName;
+        }
+        const numberValue = findLowestNumber(total);
+        if(numberValue === 0){
+            return currentName;
+        }
+        return currentName + " "+numberValue.toString();
+    }
 
     const makeLogicLevel = async (logiclevelValue:string): Promise<LogicSup> =>{
         const logicSup = await fetchLogic(logiclevelValue);
+        const name = checkLogicName(logicSup.name);
+        logicSup.name = name;
         const indexpwHigh = logicSup.pinOutHigh.findIndex((value) => value.options[0] === TypePin.Power);
         const indexgndHigh = logicSup.pinOutHigh.findIndex((value) => value.options[0] === TypePin.GND);
-        const pwHighPin = makePin(logicSup.pinOutHigh[indexpwHigh], TypePin.Power);
+        const pwHighPin = makePin(logicSup.pinOutHigh[indexpwHigh], TypePin.Power, logicSup.highVolt);
         const gndHighPin = makePin(logicSup.pinOutHigh[indexgndHigh], TypePin.GND);
 
-        const allocedPins = allocVoltage(pwHighPin, gndHighPin, logicSup.convName);
+        const allocedPins = allocVoltage(pwHighPin, gndHighPin, logicSup.name);
 
 
 
@@ -285,10 +372,10 @@ const ModulatorComp = () =>{
 
         const indexpwLow = logicSup.pinOutLow.findIndex((value) => value.options[0] === TypePin.Power);
         const indexgndLow = logicSup.pinOutLow.findIndex((value) => value.options[0] === TypePin.GND);
-        const pwLowPin = makePin(logicSup.pinOutLow[indexpwLow], TypePin.Power);
+        const pwLowPin = makePin(logicSup.pinOutLow[indexpwLow], TypePin.Power, logicSup.lowVolt);
         const gndLowPin = makePin(logicSup.pinOutLow[indexgndLow], TypePin.GND);
 
-        const allocedLowPins = allocVoltage(pwLowPin, gndLowPin, logicSup.convName);
+        const allocedLowPins = allocVoltage(pwLowPin, gndLowPin, logicSup.name);
 
         logicSup.pinOutLow[indexpwLow].used = true;
         logicSup.pinOutLow[indexpwLow].moduleName.push(allocedLowPins[0].BreakoutName);
@@ -331,11 +418,19 @@ const ModulatorComp = () =>{
 
     }
 
-    const makePin = (breakoutPin: PinBreakout, typeUsed: TypePin): Pin =>{
+    const makePin = (breakoutPin: PinBreakout, typeUsed: TypePin, voltage?:number): Pin =>{
+        if(voltage){
+            return{ moduleId: breakoutBoard.name,
+                    typePin: typeUsed,
+                    posPin: breakoutPin.position,
+                    name: breakoutPin.name,
+                    voltage: voltage    
+            }
+        }
         return {moduleId: breakoutBoard.name,
                 typePin: typeUsed,
                 posPin: breakoutPin.position,
-                name: breakoutPin.name    
+                name: breakoutPin.name,   
             }
     }
 
@@ -353,49 +448,10 @@ const ModulatorComp = () =>{
         return -5;
     }
 
-    const logicLeveLPairCreate = (modulePin:Pin, allocedPin: PinAlloc, logicSup: LogicSup): LogicPair =>{
-        const moduleHigh = modulePin.logicLevel >3.3;
-        const positionLogic = listNumberFind(logicSup.conPairs);
-        
-        return {
-            "logicPos": positionLogic,
-            "moduleName": modulePin.moduleId,
-            "modulePin": modulePin,
-            "moduleHigh": moduleHigh,
-            "pinBreakLocation": allocedPin.pinBreakLocation,
-            "pinBreakName": allocedPin.pinBreakName,
-            "BreakoutName": allocedPin.BreakoutName,
-        }
-
-
-    }
-
-    const listNumberFind = (pairs: LogicPair[]): number =>{
-        const searchList = [];
-        for(let i = 0; i < pairs.length; i++){
-            searchList.push(pairs[i].logicPos);
-        }
-        if(searchList.length == 0){
-            return 0;
-        }
-
-        searchList.sort(function(a, b) {return a-b;})
-        let lowest = -1;
-        for(let i=0; i< searchList.length; i++){
-            if(searchList[i] != i){
-                lowest = i;
-                break;
-            }
-        }
-        if(lowest == -1){
-            lowest = searchList[searchList.length - 1] + 1;
-        }
-        return lowest;
-    }
 
 
     const allocVoltage = (powerPin: Pin, gndPin: Pin, moduleName: string): PinAlloc[] =>{
-        const indexPWRBoard = breakoutBoard.powerPins.findIndex((value) => Number(powerPin.name) === Number(value.voltage));
+        const indexPWRBoard = breakoutBoard.powerPins.findIndex((value) => Number(powerPin.voltage) === Number(value.voltage));
         //exist power pin, with right voltage for module
 
         if (indexPWRBoard !== -1) {
@@ -417,7 +473,7 @@ const ModulatorComp = () =>{
             }])
         }
         if(conPowerSup.length > 0){
-            const indexConPowerSup = conPowerSup.findIndex((value) => Number(powerPin.name) === value.voltage);
+            const indexConPowerSup = conPowerSup.findIndex((value) => Number(powerPin.voltage) === value.voltage);
             if(indexConPowerSup !== -1){
                 if(conPowerSup[indexConPowerSup].conModule.findIndex((value) => value === moduleName) === -1){
                     conPowerSup[indexConPowerSup].conModule.push(moduleName);
@@ -441,10 +497,10 @@ const ModulatorComp = () =>{
             }
         }else{
             const newPowerSup:powerSup = ({
-                                            supplyName: "Power Supply "+powerPin.name,
-                                            voltage: Number(powerPin.name),
+                                            supplyName: "Power Supply "+powerPin.voltage,
+                                            voltage: powerPin.voltage,
                                             maxAmps: 5,
-                                            supLocPin: 900 +Number(powerPin.name),
+                                            supLocPin: 900 +Number(powerPin.voltage),
                                             conModule: [moduleName]
                                         });
             const tempPowerSup = conPowerSup;
@@ -641,7 +697,6 @@ const ModulatorComp = () =>{
     }
 
     //set the temp allocated pin position to the breakoutboard
-    //TODO: remove pin as option
     const breakBoardAllocPins = (allocPins: PinAlloc[]) => {
         if(breakoutBoard){
             const tempBreakoutBoard = breakoutBoard;
@@ -666,34 +721,69 @@ const ModulatorComp = () =>{
     const getSerialMsg = async (msg: string) => {
         if(msg.length >= 10){
             console.log("new Message: "+msg);
-            await addSchema(msg.trim());
+            await addSVG(msg.trim());
         }
     }
 
-    //TODO: add code for led.enable when some pins are used
+
+    const highlightShit = (moduleName: string|undefined) =>{
+        if(moduleName){
+            const indexconModule = conModules.findIndex( i => i.name === moduleName);
+            if(indexconModule !== -1){
+                setHighlighted(conModules[indexconModule]);
+                setHighlightPins(getAllocedPinsForModule(conModules[indexconModule]));
+                return;
+            }
+        }
+        setHighlighted(undefined);
+        setHighlightPins(getAllocedPinsForModule(undefined));
+    }
+
+    const getAllocedPinsForModule = (module: ModuExtern| undefined) =>{
+        if(module){
+            const tempList = [];
+            allocedPins.forEach(function (valPin) {
+                if(valPin.moduleName === module.name){
+                    tempList.push(valPin)
+                }
+            });
+            return tempList;
+        }
+        return allocedPins;
+    }
+
+    const checkExtraComp = () =>{
+        if(conPowerSup.length > 0){
+            return true;
+        }
+        if(conLogicLevels.length > 0){
+            return true;
+        }
+        return false;
+    }
+
 
     return(
         <section id={sectionId}>
             <Grid container spacing={5}>
                 <GridHeader title={"Modulator"} action={<span><SerialThing addComp={getSerialMsg}/> </span>}/>
-                <Grid xs={5} item style={{paddingTop:"0"}}>
+                <Grid xs={4} item style={{paddingTop:"0"}}>
                     <Grid
                         direction={"column"}
                         container
                     >
-                        {<h3>First Code for Makecode: led.enable(false);</h3>}
+                        <PinLayoutComp highlighted={highLighted} highlightPinsAlloc={highLightPins}/>
                         
-                        
-                        {conPowerSup.length >0?<PowerSupplyComp supplies={conPowerSup}/>:null}
-                        {conLogicLevels.length >0?<ExtraNeededComp supplies={conLogicLevels} />: null}
+                        {/* {conLogicLevels.length >0?<ExtraNeededComp supplies={conLogicLevels} />: null} */}
                         {/* {conModules.length >0? <ServiceCodeComp modules={conModules}/>: null} */}
                         {/* {conModules.length >0? <ClientStartModu modules={conModules}/>: null} */}
-                        <PinLayoutComp/>
+                       
                     </Grid>
                 </Grid>
-
-            <SchemaComp modules={conModules} logicDeviders={conLogicLevels} removeFunc={removeConModule} allocedPins={allocedPins} addSchema={addSchema}/>
             
+            {/* <SchemaComp modules={conModules} logicDeviders={conLogicLevels} removeFunc={removeConModule} allocedPins={allocedPins} addSchema={addSchema}/> */}
+            <SchemaCompTest modules={conModules} logicDeviders={conLogicLevels} highlighted={highLighted} removeFunc={removeConModule} allocedPins={allocedPins} addSchema={addSVG} highlight={highlightShit}/>
+            {checkExtraComp()?<ExtraNeededComp powerSupplies={conPowerSup} LogicSupl={conLogicLevels} highlighted={highLighted} highlightPinsAlloc={highLightPins}/>:null}
 
 
             </Grid>

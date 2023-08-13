@@ -36,7 +36,30 @@ export const fetchModule = async(nameFile: string):Promise<ModuExtern> => {
     const modulJson = await import ("../diagrams/"+nameFile+".json");
 
     //Possible to do checks if all things filled in
-    const tempName = modulJson.name+ " " + new Date().getSeconds();
+    //const tempName = modulJson.name+ " " + new Date().getSeconds();
+    const tempName = modulJson.name;
+    const pins = pinTyping(modulJson.numberPins, modulJson.pinLayout, tempName)
+    const tempCode = typeCode(modulJson.code)
+    const modu:ModuExtern = {
+        "name":tempName,
+        "type":modulJson.type,
+        "numberPins":modulJson.numberPins,
+        "diagram":modulJson.diagram,
+        "diagramWidth":modulJson.diagramWidth,
+        "pinLayout":pins,
+        "codeAct":tempCode
+    } 
+
+    return modu;
+}
+
+
+export const fetchModuleSvg = async(nameFile: string):Promise<ModuExtern> => {
+    const modulJson = await import ("../diagrams/"+nameFile+".json");
+
+    //Possible to do checks if all things filled in
+    //const tempName = modulJson.name+ " " + new Date().getSeconds();
+    const tempName = modulJson.name;
 
     const pins = pinTyping(modulJson.numberPins, modulJson.pinLayout, tempName)
     const tempCode = typeCode(modulJson.code)
@@ -45,6 +68,7 @@ export const fetchModule = async(nameFile: string):Promise<ModuExtern> => {
         "type":modulJson.type,
         "numberPins":modulJson.numberPins,
         "diagram":modulJson.diagram,
+        "diagramWidth":modulJson.diagramWidth,
         "pinLayout":pins,
         "codeAct":tempCode
     } 
@@ -54,13 +78,13 @@ export const fetchModule = async(nameFile: string):Promise<ModuExtern> => {
 
 export const fetchLogic = async(nameFile: string):Promise<LogicSup> => {
     const logicJson = await import ("../logicLevels/"+nameFile+"_3.3Logic.json");
-    const tempName = logicJson.name+ " " + new Date().getSeconds();
-
+    //const tempName = logicJson.name+ " " + new Date().getSeconds();
+    const tempName = logicJson.name;
     const lowVoltPins = breakoutPinType(logicJson.numPinsSide, logicJson.pinLayoutLow);
     const highVoltPins = breakoutPinType(logicJson.numPinsSide, logicJson.pinLayoutHigh);
 
     const logic:LogicSup = {
-        "convName": tempName,
+        "name": tempName,
         "highVolt": logicJson.highVolt,
         "lowVolt": logicJson.lowVolt,
         "numberConvPins":logicJson.channels,
@@ -93,7 +117,13 @@ const pinTyping = (numberOfPins: number, data: any[], moduelId:string):Pin[] => 
             typePin: tempType,
             posPin: data[i].pos,
             name: data[i].name,
-            logicLevel: data[i].logicLevel
+            logicLevel: data[i].logicLevel,
+            voltage: data[i].voltage,
+            posRect: {  xTop:data[i].rectPos.xTop,
+                        yTop:data[i].rectPos.yTop,
+                        xBot:data[i].rectPos.xBot,
+                        yBot:data[i].rectPos.yBot,
+                    }
         })
     }
     return result;
@@ -165,4 +195,38 @@ export const predicate = (a, b) =>{
 
 
     return 0;
+}
+
+export const getColor = (pinName) => {
+    const map = new Map<string, string>();
+    map.set("GND", "#000000");
+    map.set("3.3V", "#e6194B")
+    map.set("P20", "#ffe119");
+    map.set("P19", "#4363d8");
+
+    map.set("P16", "#3cb44b");
+    map.set("P15", "#fabed4");
+    map.set("P14", "#469990");
+    map.set("P13", "#000075");
+    map.set("P12", "#800000");
+    map.set("P11", "#800000");
+    map.set("P10", "#808000");
+    map.set("P9", "#aaffc3");
+    map.set("P8", "#9A6324");
+    map.set("P7", "#dcbeff");
+    map.set("P6", "#bfef45");
+    map.set("P5", "#800000");
+    map.set("P4", "#f032e6");
+    map.set("P3", "#42d4f4");
+    map.set("P2", "#ffd8b1");
+    
+    map.set("P1", "#f58231");
+    map.set("P0", "#911eb4");
+
+
+    let temp = map.get(pinName);
+    if(!temp){
+        temp = "#e6194B"
+    }
+    return temp;
 }

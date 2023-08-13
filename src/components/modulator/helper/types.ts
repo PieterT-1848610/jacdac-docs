@@ -24,6 +24,15 @@ export type Pin = {
     posPin: number;
     name?: string;
     logicLevel?: number;
+    posRect?: RectPos;
+    voltage?: number;
+}
+
+export type RectPos = {
+    xTop: number;
+    yTop: number;
+    xBot: number;
+    yBot: number;
 }
 
 //used module for dynamic code
@@ -41,6 +50,7 @@ export type ModuExtern = {
     pinLayout: Pin[];
     diagram: string;
     codeAct?: CodeMake;
+    diagramWidth: number;
 }
 
 //type for pinout breakboard
@@ -92,7 +102,7 @@ export type powerSup = {
 
 
 export type LogicSup = {
-    convName: string;
+    name: string;
     highVolt: number;
     lowVolt: number;
     numberConvPins: number;
@@ -121,3 +131,5 @@ export type LogicPair = {
 //     extraSup: boolean;
     
 // }
+
+

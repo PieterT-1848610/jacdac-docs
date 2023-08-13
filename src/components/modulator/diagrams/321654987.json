@@ -2,29 +2,48 @@
     "name": "Srly Relay",
     "type": "Relay",
     "numberPins": 3,
-    "diagram": "http://www.techydiy.org/wp-content/uploads/2017/02/keyes-SR1y-photo-with-labels.jpg",
+    "diagram": "https://i.imgur.com/QVKEVIy.png",
+    "diagramWidth":285,
     "pinLayout": [
         {
             "type": "Digital OUT",
             "pos": "0",
-            "name": "S"
+            "name": "S",
+            "rectPos":{
+                "xTop": 145,
+                "yTop": 324,
+                "xBot": 154,
+                "yBot": 408
+            }
         },
         {
             "type": "VCC",
             "pos": "1",
-            "name": "5"
+            "name": "2",
+            "rectPos":{
+                "xTop": 172,
+                "yTop": 324,
+                "xBot": 181,
+                "yBot": 408
+            },
+            "voltage":5
         },
         {
             "type": "GND",
             "pos": "2",
-            "name": "GND"
+            "name": "GND",
+            "rectPos":{
+                "xTop": 198,
+                "yTop": 324,
+                "xBot": 207,
+                "yBot": 408
+            }
         }
     ],
     "code": {
         "codeClient": "const #_client = new modules.RelayClient(\"#\");",
-        "codeService": "const # = new ServiceImpl.RelayService(DigitalPin.#, \"#\", true);",
+        "codeService": "new ServiceImpl.RelayService(DigitalPin.#, \"#\", true);",
         "codeServiceParam": [
-            "Service",
             "0",
             "Name"
         ]
